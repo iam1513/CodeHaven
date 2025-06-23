@@ -1,18 +1,12 @@
-import { useState } from 'react'
-import './App.css'
-import usePing from './hooks/apis/queries/usePing'
-import { PingComponent } from './components/atoms/pingComponent'
-import { Routes, Route } from 'react-router-dom'
-import CreateProject from './pages/CreateProject'
-import ProjectPlayground from './pages/ProjectPlayground'
+import { Router } from "./Router"
+import { io } from "socket.io-client"
 
 function App() {
 
+  // const socket = io('http://localhost:3000')
+
   return (
-    <Routes>
-      <Route path="/" element={<CreateProject />} />
-      <Route path="/projects/:projectId" element={<ProjectPlayground />} />
-    </Routes>
+    <Router />
   )
 }
 

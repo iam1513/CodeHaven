@@ -7,6 +7,7 @@ import { createServer } from "node:http"
 import chokidar from "chokidar"
 import path from "path"
 import { handleEditorSocketEvents } from './socketHandlers/editorHandler.js';
+import queryString from 'query-string';
 
 const app = express();
 const server = createServer(app)
@@ -35,12 +36,15 @@ app.get('/', (req, res) => {
 })
 
 // Use namespace to separate socket connection for editor and terminal
-const editorNamespce = io.of('/editor')
+const editorNamespace = io.of('/editor')
 
-editorNamespce.on("connection", (socket) => {
+editorNamespace.on("connection", (socket) => {
     console.log("Editor connected")
 
-    let projectId = "123";
+    const queryParams = socket.handshake.query;
+    let projectId = queryParams.projectId;
+
+    console.log("Project ID from query params:", projectId);
 
     // Exclude Node_Module changes all the time 
     if (projectId) {
