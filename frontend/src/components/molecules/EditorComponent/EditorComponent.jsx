@@ -1,17 +1,16 @@
 import Editor from '@monaco-editor/react';
 import { useState } from 'react';
 import { useEffect } from 'react';
-import { useEditorSocketStore } from '../../../store/editorSocketStore';
 import { useActiveFileTabStore } from '../../../store/activeFileTab';
+import { useEditorSocketStore } from '../../../store/editorSocketStore';
 
 export const EditorComponent = () => {
 
     const [editorState, setEditorState] = useState({
         theme: null
     })
-
+    const { activeFileTab } = useActiveFileTabStore()
     const { editorSocket } = useEditorSocketStore()
-    const { activeFileTab, setActiveFileTab } = useActiveFileTabStore()
 
     async function downloadTheme() {
         const response = await fetch("/Dracula.json")
@@ -26,12 +25,25 @@ export const EditorComponent = () => {
 
     }
 
-    if (editorSocket) {
-        editorSocket.on("readFileSuccess", (data) => {
-            console.log("File read successfully:", data);
-            setActiveFileTab(data.path, data.value);
-            console.log("Active file tab set:", activeFileTab);
-        })
+    let timerID = null;
+
+    function handleChange(value) {
+
+        // DEBOUNCING 
+
+        // Clear the previous timer if it exists
+        if (timerID !== null) {
+            clearTimeout(timerID);
+        }
+
+        // Set a new timer
+        timerID = setTimeout(() => {
+            const editorContent = value;
+            editorSocket.emit("writeFile", {
+                data: editorContent,
+                pathToFileOrFolder: activeFileTab?.path
+            })
+        }, 2000)
     }
 
     useEffect(() => {
@@ -51,6 +63,7 @@ export const EditorComponent = () => {
                         fontSize: 24,
                         fontFamily: 'Fira Code, monospace',
                     }}
+                    onChange={handleChange}
                     value={activeFileTab?.value !== undefined ? activeFileTab?.value : "// Welcome to the Playground"}
                     onMount={handleEditorTheme}
                 />
