@@ -1,26 +1,24 @@
 import React, { useEffect, useRef } from 'react'
 import { Terminal } from '@xterm/xterm'
-import '@xterm/xterm/css/xterm.css' // Required styles
+import '@xterm/xterm/css/xterm.css'
 import { FitAddon } from '@xterm/addon-fit'
 import { io } from 'socket.io-client'
 import { useParams } from 'react-router-dom'
 
 const BrowserTerminal = () => {
-
   const terminalRef = useRef(null)
-
-  // Using useRef to hold the socket connection
-  // This prevents re-creating the socket connection on every render
   const socket = useRef(null)
-
   const { projectId: projectIdFromUrl } = useParams()
 
   useEffect(() => {
     if (!projectIdFromUrl || projectIdFromUrl === "undefined") return;
+
     const term = new Terminal({
       cursorBlink: true,
       fontSize: 14,
       fontFamily: 'Ubuntu Mono, monospace',
+      disableStdin: false,
+      convertEol: true,
       theme: {
         background: '#282a37',
         foreground: '#f8f8f3',
@@ -31,11 +29,10 @@ const BrowserTerminal = () => {
         yellow: '#f1fa8c',
         cyan: '#8be9fd',
       },
-      convertEol: true,
-    })
+    });
 
     term.open(terminalRef.current)
-    let fitAddon = new FitAddon()
+    const fitAddon = new FitAddon()
     term.loadAddon(fitAddon)
     fitAddon.fit()
 
@@ -46,37 +43,29 @@ const BrowserTerminal = () => {
     })
 
     socket.current.on('shell-output', (data) => {
-      term.write(data)
-    })
+      term.write(data);
+    });
 
     term.onData((data) => {
-      console.log(data)
-      socket.current.emit('shell-input', data)
-    })
+      socket.current.emit('shell-input', data);
+    });
 
     return () => {
       if (socket.current) {
-        socket.current.disconnect()
+        socket.current.disconnect();
       }
-      term.dispose()
-    }
-
-  }, [])
+      term.dispose();
+    };
+  }, []);
 
   return (
     <div
       ref={terminalRef}
-      style={{
-        width: '100%',
-        height: '25vh',
-        overflow: 'auto',
-      }}
+      style={{ width: '100%', height: '25vh', overflow: 'auto' }}
       className='terminal'
       id='terminal-container'
-    >
-
-    </div>
-  )
+    />
+  );
 }
 
-export default BrowserTerminal
+export default BrowserTerminal;
