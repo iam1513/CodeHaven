@@ -8,6 +8,7 @@ import chokidar from "chokidar"
 import path from "path"
 import { handleEditorSocketEvents } from './socketHandlers/editorHandler.js';
 import queryString from 'query-string';
+import { handleContainerCreate } from './containers/handleContainerCreate.js';
 
 const app = express();
 const server = createServer(app)
@@ -41,13 +42,12 @@ const editorNamespace = io.of('/editor')
 editorNamespace.on("connection", (socket) => {
     console.log("Editor connected")
 
-    const queryParams = socket.handshake.query;
-    let projectId = queryParams.projectId;
-
+    // console.log("Query params received:", queryParams);
+    const projectId = socket.handshake.query['projectId']
     console.log("Project ID from query params:", projectId);
 
     // Exclude Node_Module changes all the time 
-    if (projectId) {
+    if (projectId !== "undefined") {
         // Scope wont be limited to the function when var is used
         var watcher = chokidar.watch(`./projects/${projectId}`, {
             ignored: (path) => path.includes("node_modules"),
@@ -65,11 +65,37 @@ editorNamespace.on("connection", (socket) => {
 
     }
 
-    handleEditorSocketEvents(socket, editorNamespace);
+    if (projectId && projectId !== "undefined") {
+        handleEditorSocketEvents(socket, projectId, watcher);
+    }
 
     socket.on("disconnect", async () => {
         await watcher.close()
         console.log("Editor disconnected")
+    })
+
+})
+
+const terminalNamespace = io.of('/terminal')
+
+terminalNamespace.on("connection", (socket) => {
+    console.log("Terminal connected")
+
+    socket.on("shell-input", (data) => {
+        console.log("Received shell input:", data);
+        terminalNamespace.emit("shell-output", data);
+    })
+
+    const projectId = socket.handshake.query['projectId']
+    console.log("Project ID from passing :", projectId);
+    if (projectId && projectId !== "undefined") {
+        handleContainerCreate(projectId, socket);
+    } else {
+        console.warn("Skipping container creation: Invalid projectId", projectId);
+    }
+
+    socket.on("disconnect", () => {
+        console.log("Terminal disconnected")
     })
 
 })
