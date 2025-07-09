@@ -2,8 +2,8 @@ import React, { useEffect, useRef } from 'react'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { FitAddon } from '@xterm/addon-fit'
-import { io } from 'socket.io-client'
 import { useParams } from 'react-router-dom'
+import { AttachAddon } from '@xterm/addon-attach'
 
 const BrowserTerminal = () => {
   const terminalRef = useRef(null)
@@ -36,24 +36,20 @@ const BrowserTerminal = () => {
     term.loadAddon(fitAddon)
     fitAddon.fit()
 
-    socket.current = io(`${import.meta.env.VITE_BACKEND_URL}/terminal`, {
-      query: {
-        projectId: projectIdFromUrl
-      }
-    })
+    // socket.current = io(`${import.meta.env.VITE_BACKEND_URL}/terminal`, {
+    //   query: {
+    //     projectId: projectIdFromUrl
+    //   }
+    // })
 
-    socket.current.on('shell-output', (data) => {
-      term.write(data);
-    });
+    socket.current = new WebSocket(`ws://localhost:3000/terminal?projectId=` + projectIdFromUrl)
 
-    term.onData((data) => {
-      socket.current.emit('shell-input', data);
-    });
+    socket.current.onopen = () => {
+      const attachAddon = new AttachAddon(socket.current)
+      term.loadAddon(attachAddon);
+    }
 
     return () => {
-      if (socket.current) {
-        socket.current.disconnect();
-      }
       term.dispose();
     };
   }, []);

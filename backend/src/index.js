@@ -9,6 +9,8 @@ import path from "path"
 import { handleEditorSocketEvents } from './socketHandlers/editorHandler.js';
 import queryString from 'query-string';
 import { handleContainerCreate } from './containers/handleContainerCreate.js';
+import { WebSocketServer } from 'ws';
+import { handleTerminalCreation } from './containers/handleTerminalCreation.js';
 
 const app = express();
 const server = createServer(app)
@@ -76,31 +78,65 @@ editorNamespace.on("connection", (socket) => {
 
 })
 
-const terminalNamespace = io.of('/terminal')
+// const terminalNamespace = io.of('/terminal')
 
-terminalNamespace.on("connection", (socket) => {
-    console.log("Terminal connected")
+// terminalNamespace.on("connection", (socket) => {
+//     console.log("Terminal connected")
 
-    socket.on("shell-input", (data) => {
-        console.log("Received shell input:", data);
-        terminalNamespace.emit("shell-output", data);
-    })
+//     socket.on("shell-input", (data) => {
+//         console.log("Received shell input:", data);
+//         terminalNamespace.emit("shell-output", data);
+//     })
 
-    const projectId = socket.handshake.query['projectId']
-    console.log("Project ID from passing :", projectId);
-    if (projectId && projectId !== "undefined") {
-        handleContainerCreate(projectId, socket);
-    } else {
-        console.warn("Skipping container creation: Invalid projectId", projectId);
-    }
+//     const projectId = socket.handshake.query['projectId']
+//     console.log("Project ID from passing :", projectId);
+//     if (projectId && projectId !== "undefined") {
+//         handleContainerCreate(projectId, socket);
+//     } else {
+//         console.warn("Skipping container creation: Invalid projectId", projectId);
+//     }
 
-    socket.on("disconnect", () => {
-        console.log("Terminal disconnected")
-    })
+//     socket.on("disconnect", () => {
+//         console.log("Terminal disconnected")
+//     })
 
-})
+// })
 
 // Instead of app , we will use server so we can use both http nd socket on same port
 server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
+})
+
+const webSocketForTerminal = new WebSocketServer({ noServer: true }); // we will handle the upgrade manually
+
+server.on('upgrade', (req, tcp, head) => {
+    // The callback will be called when a client tries to connect to the WebSocket server
+    // req -> incoming http req details
+    // socket -> tcp socket for the connection
+    // head -> contains the first packet of data sent by the client
+
+    const isTerminal = req.url?.includes('/terminal');
+
+    if (isTerminal) {
+        console.log("REQ URL", req.url)
+        const projectId = req.url.split("=")[1]
+        console.log(projectId)
+
+        handleContainerCreate(projectId, webSocketForTerminal, req, tcp, head);
+    }
+})
+
+
+webSocketForTerminal.on('connection', (ws, req, container) => {
+    // console.log("Connected to terminal WebSocket server", ws, req, container);
+    handleTerminalCreation(container, ws)
+    ws.on('close', () => {
+        container.remove({ force: true }, (err, data) => {
+            if (err) {
+                console.error("Error removing container:", err);
+            } else {
+                console.log("Container removed successfully:", data);
+            }
+        });
+    })
 })
