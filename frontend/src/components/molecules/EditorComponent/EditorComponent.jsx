@@ -1,74 +1,72 @@
 import Editor from '@monaco-editor/react';
-import { useState } from 'react';
-import { useEffect } from 'react';
-import { useActiveFileTabStore } from '../../../store/activeFileTab';
+import { useEffect, useState } from 'react';
+import { useActiveFileTabStore } from '../../../store/activeFileTabStore';
 import { useEditorSocketStore } from '../../../store/editorSocketStore';
+import { extensionToFileType } from '../../../utils/extensionToFileType';
 
 export const EditorComponent = () => {
 
+    let timerId = null;
     const [editorState, setEditorState] = useState({
         theme: null
-    })
-    const { activeFileTab } = useActiveFileTabStore()
-    const { editorSocket } = useEditorSocketStore()
+    });
+
+    const { activeFileTab } = useActiveFileTabStore();
+
+    const { editorSocket } = useEditorSocketStore();
 
     async function downloadTheme() {
-        const response = await fetch("/Dracula.json")
-        const data = await response.json()
-        setEditorState({ ...editorState, theme: data })
+        const response = await fetch('/Dracula.json');
+        const data = await response.json();
+        console.log(data);
+        setEditorState({ ...editorState, theme: data });
     }
 
     function handleEditorTheme(editor, monaco) {
-
         monaco.editor.defineTheme('dracula', editorState.theme);
         monaco.editor.setTheme('dracula');
-
     }
 
-    let timerID = null;
-
     function handleChange(value) {
-
-        // DEBOUNCING 
-
-        // Clear the previous timer if it exists
-        if (timerID !== null) {
-            clearTimeout(timerID);
+        // Clear old timer
+        if(timerId != null) {
+            clearTimeout(timerId);
         }
-
-        // Set a new timer
-        timerID = setTimeout(() => {
+        // set the new timer
+        timerId = setTimeout(() => {
             const editorContent = value;
+            console.log("Sending writefile event");
             editorSocket.emit("writeFile", {
                 data: editorContent,
-                pathToFileOrFolder: activeFileTab?.path
+                pathToFileOrFolder: activeFileTab.path
             })
-        }, 2000)
+        }, 2000);
+        
     }
 
     useEffect(() => {
         downloadTheme();
-    }, [])
+    }, []);
 
     return (
         <>
-            {editorState.theme && (
-                <Editor
-                    height="100vh"
-                    width="100%"
+            {   editorState.theme &&
+                <Editor 
+                    
+                    width={'100%'}
                     defaultLanguage={undefined}
-                    defaultValue="// Welcome to the Playground"
-                    theme="vs-dark"
+                    defaultValue='// Welcome to the playground'
                     options={{
-                        fontSize: 24,
-                        fontFamily: 'Fira Code, monospace',
+                        fontSize: 18,
+                        fontFamily: 'monospace'
                     }}
+                    language={extensionToFileType(activeFileTab?.extension)}
                     onChange={handleChange}
-                    value={activeFileTab?.value !== undefined ? activeFileTab?.value : "// Welcome to the Playground"}
+                    value={activeFileTab?.value ? activeFileTab.value : '// Welcome to the playground'}
+
                     onMount={handleEditorTheme}
                 />
-
-            )}
+            }
         </>
-    );
-};
+    )
+}

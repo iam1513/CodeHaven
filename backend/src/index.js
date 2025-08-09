@@ -1,142 +1,63 @@
 import express from 'express';
 import cors from 'cors';
-import { PORT } from "./config/serverConfig.js";
-import apiRouter from "./routes/index.js";
-import { Server } from "socket.io"
-import { createServer } from "node:http"
-import chokidar from "chokidar"
-import path from "path"
+import { createServer } from 'node:http';
+import { Server } from 'socket.io';
+import apiRouter from './routes/index.js';
+import { PORT } from './config/serverConfig.js';
+import chokidar from 'chokidar';
 import { handleEditorSocketEvents } from './socketHandlers/editorHandler.js';
-import queryString from 'query-string';
-import { handleContainerCreate } from './containers/handleContainerCreate.js';
-import { WebSocketServer } from 'ws';
-import { handleTerminalCreation } from './containers/handleTerminalCreation.js';
+
 
 const app = express();
-const server = createServer(app)
-
-// Need to set cors again for socket
+const server = createServer(app);
 const io = new Server(server, {
     cors: {
         origin: '*',
-        methods: ['GET', 'POST']
+        method: ['GET', 'POST'],
     }
 });
 
+
 app.use(express.json());
-app.use(express.urlencoded());
+app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
-io.on('connection', (socket) => {
-    console.log("User Connected")
-})
+app.use('/api', apiRouter);
 
-app.use("/api", apiRouter);
-app.get('/', (req, res) => {
-    return res.json({
-        "message": "Welcome to the backend server",
-    })
-})
+app.get('/ping', (req, res) => {
+    return res.json({ message: 'pong' });
+});
 
-// Use namespace to separate socket connection for editor and terminal
-const editorNamespace = io.of('/editor')
+const editorNamespace = io.of('/editor');
 
 editorNamespace.on("connection", (socket) => {
-    console.log("Editor connected")
+    console.log("editor connected");
 
-    // console.log("Query params received:", queryParams);
-    const projectId = socket.handshake.query['projectId']
-    console.log("Project ID from query params:", projectId);
+    // somehow we will get the projectId from frontend;
+    let projectId = socket.handshake.query['projectId'];
 
-    // Exclude Node_Module changes all the time 
-    if (projectId !== "undefined") {
-        // Scope wont be limited to the function when var is used
+    console.log("Project id received after connection", projectId);
+
+    if (projectId) {
         var watcher = chokidar.watch(`./projects/${projectId}`, {
             ignored: (path) => path.includes("node_modules"),
-            persistent: true, // keeps the watcher in  runnning stage till the time app is running 
-            // Wait for sometime before sending an event
+            persistent: true, /** keeps the watcher in running state till the time app is running */
             awaitWriteFinish: {
-                stabilityThreshold: 2000 // Ensures stability of files before triggering events
+                stabilityThreshold: 2000 /** Ensures stability of files before triggering event */
             },
-            ignoreInitial: true // Ignore the initialized files 
-        })
+            ignoreInitial: true /** Ignores the initial files in the directory */
+        });
 
         watcher.on("all", (event, path) => {
-            console.log(event, path)
-        })
-
+            console.log(event, path);
+        });
     }
 
-    if (projectId && projectId !== "undefined") {
-        handleEditorSocketEvents(socket, projectId, watcher);
-    }
+    handleEditorSocketEvents(socket, editorNamespace);
 
-    socket.on("disconnect", async () => {
-        await watcher.close()
-        console.log("Editor disconnected")
-    })
+});
 
-})
-
-// const terminalNamespace = io.of('/terminal')
-
-// terminalNamespace.on("connection", (socket) => {
-//     console.log("Terminal connected")
-
-//     socket.on("shell-input", (data) => {
-//         console.log("Received shell input:", data);
-//         terminalNamespace.emit("shell-output", data);
-//     })
-
-//     const projectId = socket.handshake.query['projectId']
-//     console.log("Project ID from passing :", projectId);
-//     if (projectId && projectId !== "undefined") {
-//         handleContainerCreate(projectId, socket);
-//     } else {
-//         console.warn("Skipping container creation: Invalid projectId", projectId);
-//     }
-
-//     socket.on("disconnect", () => {
-//         console.log("Terminal disconnected")
-//     })
-
-// })
-
-// Instead of app , we will use server so we can use both http nd socket on same port
 server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
-})
-
-const webSocketForTerminal = new WebSocketServer({ noServer: true }); // we will handle the upgrade manually
-
-server.on('upgrade', (req, tcp, head) => {
-    // The callback will be called when a client tries to connect to the WebSocket server
-    // req -> incoming http req details
-    // socket -> tcp socket for the connection
-    // head -> contains the first packet of data sent by the client
-
-    const isTerminal = req.url?.includes('/terminal');
-
-    if (isTerminal) {
-        console.log("REQ URL", req.url)
-        const projectId = req.url.split("=")[1]
-        console.log(projectId)
-
-        handleContainerCreate(projectId, webSocketForTerminal, req, tcp, head);
-    }
-})
-
-
-webSocketForTerminal.on('connection', (ws, req, container) => {
-    // console.log("Connected to terminal WebSocket server", ws, req, container);
-    handleTerminalCreation(container, ws)
-    ws.on('close', () => {
-        container.remove({ force: true }, (err, data) => {
-            if (err) {
-                console.error("Error removing container:", err);
-            } else {
-                console.log("Container removed successfully:", data);
-            }
-        });
-    })
-})
+    // console.log(process.cwd())
+});

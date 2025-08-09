@@ -1,27 +1,40 @@
-import { create } from 'zustand';
-import { useActiveFileTabStore } from './activeFileTab';
+import { create } from "zustand";
+import { useActiveFileTabStore } from "./activeFileTabStore";
+import { useTreeStructureStore } from "./treeStructureStore";
+import { usePortStore } from "./portStore";
 
-export const useEditorSocketStore = create((set, get) => ({
+export const useEditorSocketStore = create((set) => ({
     editorSocket: null,
-
     setEditorSocket: (incomingSocket) => {
 
-        // Dont do generic hook call instead zustand gives us the ability to call the store directly
         const activeFileTabSetter = useActiveFileTabStore.getState().setActiveFileTab;
+        const projectTreeStructureSetter = useTreeStructureStore.getState().setTreeStructure;
+        const portSetter = usePortStore.getState().setPort;
 
-        if (incomingSocket) {
-            incomingSocket.on("readFileSuccess", (data) => {
-                activeFileTabSetter(data.path, data.value);
-            })
-        }
+        incomingSocket?.on("readFileSuccess", (data) => {
+            console.log("Read file success", data);
+            const fileExtension = data.path.split('.').pop();
+            activeFileTabSetter(data.path, data.value, fileExtension);
+        });
 
         incomingSocket?.on("writeFileSuccess", (data) => {
-            console.log("File written successfully", data);
+            console.log("Write file success", data);
             // incomingSocket.emit("readFile", {
             //     pathToFileOrFolder: data.path
-            // });
+            // })
+        });
+
+        incomingSocket?.on("deleteFileSuccess", () => {
+            projectTreeStructureSetter();
+        });
+
+        incomingSocket?.on("getPortSuccess", ({ port }) => {
+            console.log("port data", port);
+            portSetter(port);
         })
 
-        set({ editorSocket: incomingSocket });
+        set({
+            editorSocket: incomingSocket
+        });
     }
-}))
+}));

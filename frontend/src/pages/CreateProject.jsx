@@ -1,37 +1,41 @@
-import React from 'react';
-import { Button, Col, Row } from 'antd';
-import { useCreateProject } from '../hooks/apis/mutations/useCreateProject'
-import { useNavigate } from 'react-router-dom';
+import { Button, Col, Flex, Row } from "antd";
+import { useCreateProject } from "../hooks/apis/mutations/useCreateProject"
+import { useNavigate } from "react-router-dom";
 
-const CreateProject = () => {
+  
+export const CreateProject = () => {
 
-    const { createProjectMutation, isPending, isSuccess, error } = useCreateProject()
+    const { createProjectMutation } = useCreateProject();
 
-    const navigate = useNavigate()
+    const navigate = useNavigate();
 
     async function handleCreateProject() {
-        console.log("Creating project...")
+        console.log("Going to trigger the api");
         try {
-            const response = await createProjectMutation()
-            console.log("Now we should redirect to the editor")
-            navigate(`/projects/${response.data}`)
-        } catch (err) {
-            console.error("Failed to create project:", err)
+            const response = await createProjectMutation();
+            console.log("Now we should redirect to the editor");
+            navigate(`/project/${response.data}`)
+        } catch(error) {
+            console.log("Error creating project", error);
         }
     }
+
     return (
-        <>
-            <Row>
-                <Col span={24}>
+        
+        <Row>
+         
+            <Col span={24} >
+                <Flex justify="center" align="center">
                     <Button
-                        type='primary'
-                        onClick={handleCreateProject}>
+                            type="primary"
+                            onClick={handleCreateProject}
+                    >
                         Create Playground
                     </Button>
-                </Col>
-            </Row>
-        </>
+                </Flex>
+            </Col>
+            
+        </Row>
+            
     )
 }
-
-export default CreateProject

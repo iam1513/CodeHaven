@@ -5,12 +5,12 @@ export const useCreateProject = () => {
     const { mutateAsync, isPending, isSuccess, error } = useMutation({
         mutationFn: createProjectApi,
         onSuccess: (data) => {
-            console.log("Project created successfully:", data);
+            console.log("Project created successfully", data);
         },
-        onError: (error) => {
-            console.error("Error creating project:", error);
+        onError: () => {
+            console.log("Error creating project");
         }
-    })
+    });
 
     return {
         createProjectMutation: mutateAsync,

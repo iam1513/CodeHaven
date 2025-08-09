@@ -13,19 +13,20 @@ export const useTreeStructureStore = create((set, get) => {
             const id = get().projectId;
             const data = await queryClient.fetchQuery({
                 queryKey: [`projecttree-${id}`],
-                queryFn: () => {
-                    return getProjectTree({ projectId: id })
-                }
-            })
+                queryFn: () => getProjectTree({ projectId: id }),
+            });
 
-            console.log("Fetched tree structure:", data);
+            console.log(data);
 
-            set(
-                { treeStructure: data?.data || null }
-            );
+            set({
+                treeStructure: data
+            });
         },
         setProjectId: (projectId) => {
-            set({ projectId: projectId });
+            set({
+                projectId: projectId
+            });
         }
     }
+
 })

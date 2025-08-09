@@ -1,30 +1,29 @@
-import util from 'util';
+import uuid4 from "uuid4";
 import fs from 'fs/promises';
-import uuid4 from 'uuid4';
 import { REACT_PROJECT_COMMAND } from '../config/serverConfig.js';
-import directoryTree from 'directory-tree';
+import { execPromisified } from "../utils/execUtility.js";
 import path from 'path';
-import { execPromisified } from '../utils/execUtility.js';
+import directoryTree from "directory-tree";
+
 
 export const createProjectService = async () => {
-    // Create a unique id and inside a project folder create a new folder of that id
+    // Create a unique id and then inside the projects folder create a new folder with that id
     const projectId = uuid4();
-    // console.log("Project ID:", projectId);
+    console.log("New project id is", projectId);
+
     await fs.mkdir(`./projects/${projectId}`);
 
-    // After this , call npm create vite command in newly created folder
+    // After this call the npm creaste vite command in the newly created project folder
+    console.log("Running command to create react project", REACT_PROJECT_COMMAND);
     const response = await execPromisified(REACT_PROJECT_COMMAND, {
-        cwd: `./projects/${projectId}`,
+        cwd: `./projects/${projectId}`
     });
 
     return projectId;
-
 }
 
 export const getProjectTreeService = async (projectId) => {
     const projectPath = path.resolve(`./projects/${projectId}`);
-    // console.log("Checking path:", projectPath,)
     const tree = directoryTree(projectPath);
-    // console.log("In service , ", tree)
     return tree;
 }

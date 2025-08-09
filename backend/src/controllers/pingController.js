@@ -1,5 +1,3 @@
-export const pingController = async (req, res) => {
-    return res.json({
-        "message": "Pong",
-    });
+export async function pingCheck(req, res) {
+    return res.status(200).json({ message: 'pong' });
 }

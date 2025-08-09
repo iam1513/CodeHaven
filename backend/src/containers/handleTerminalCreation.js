@@ -1,75 +1,85 @@
+
+
 export const handleTerminalCreation = (container, ws) => {
     container.exec({
-        Cmd: ['bash', '-c', 'cd /home/sandbox/app && exec bash'],
+        Cmd: ["/bin/bash"],
         AttachStdin: true,
         AttachStdout: true,
         AttachStderr: true,
         Tty: true,
         User: "sandbox",
     }, (err, exec) => {
-        if (err) {
-            console.error("Error creating exec instance:", err);
+        if(err) {
+            console.log("Error while creating exec", err);
             return;
         }
 
-        exec.start({ hijack: true }, (err, stream) => {
-            if (err) {
-                console.error("Error starting exec instance:", err);
+        exec.start({
+            hijack: true,
+        }, (err, stream) => {
+            if(err) {
+                console.log("Error while starting exec", err);
                 return;
             }
 
-            // Step 1 : Stream Processing
+            // Step 1: Stream processing
             processStreamOutput(stream, ws);
+            // Step 2: Stream writing
 
-            // Step 2 : Stream Writing
-            ws.on('message', (message) => {
-                if (stream.writable) {
-                    stream.write(message);
-                } else {
-                    console.warn("Stream is not writable");
+            ws.on("message", (data) => {
+                if(data === "getPort") {
+                    container.inspect((err, data) => {
+                        const port = data.NetworkSettings;
+                        console.log(port);
+                    })
+                    return;
                 }
-            });
+                stream.write(data);
+            })
         })
     })
 }
 
 function processStreamOutput(stream, ws) {
-
-    let nextDataType = null; // Stores the type of data expected next
-    let nextDataLength = null; // Stores the length of the next data chunk
-    let buffer = Buffer.from(""); // Buffer to accumulate data chunks
+    let nextDataType = null; // Stores the type of the next message
+    let nextDataLength = null; // Stores the length of the next message
+    let buffer = Buffer.from("");
 
     function processStreamData(data) {
-        // Helper function to process the stream data
-        if (data) {
-            buffer = Buffer.concat([buffer, data]); // Concatenate new data to the buffer
+        // This is a helper function to process incoming data chunks
+        if(data) {
+            buffer = Buffer.concat([buffer, data]); // Concatenating the incoming data to the buffer
         }
 
-        if (!nextDataType) {
-            // If we don't know the next data type, we need to read the next 8 bytes to determine the data type
-            if (buffer.length >= 8) {
-                const header = bufferSlicer(8) // Read the first 8 bytes
-                nextDataType = header.readUInt8(0); // Read the first byte as the data type
-                nextDataLength = header.readUInt32BE(4); // Read the next 4 bytes as the length of the data
-                processStreamData()
+        if(!nextDataType) {
+            // If the next data type is not known, then we need to read the next 8 bytes to determine the type and length of the message
+            if(buffer.length >= 8) {
+                const header = bufferSlicer(8);
+                nextDataType = header.readUInt32BE(0); // The first 4 bytes represent the type of the message
+                nextDataLength = header.readUInt32BE(4); // The next 4 bytes represent the length of the message
+
+                processStreamData(); // Recursively call the function to process the message
             }
         } else {
-            if (buffer.length >= nextDataLength) {
-                const content = bufferSlicer(nextDataLength); // Slice the buffer to get the data chunk
-                ws.send(content) // Send the data chunk to the WebSocket
-                nextDataLength = null; // Reset the next data length
-                nextDataType = null; // Reset the next data type
-                processStreamData(); // Process the next data chunk
+            if(buffer.length >= nextDataLength) {
+                const content = bufferSlicer(nextDataLength); // Slice the buffer to get the message content
+                ws.send(content); // Send the message to the client
+                nextDataType = null; // Reset the type and length of the next message
+                nextDataLength = null;
+                processStreamData(); // Recursively call the function to process the next message
             }
         }
     }
 
     function bufferSlicer(end) {
-        // Helper function to slice the buffer
-        const output = buffer.slice(0, end); // Header of the chunk
-        buffer = Buffer.from(buffer.slice(end, buffer.length)); // Update the buffer to remove the processed data
-        return output; // Return the sliced output
+        // this function slices the buffer and returns the sliced buffer and the remaining buffer
+        const output = buffer.slice(0, end); // header of the chunk
+        buffer = Buffer.from(buffer.slice(end, buffer.length)); // remaining part of the chubk
+
+        return output;
+
     }
 
-    stream.on('data', processStreamData)
+    stream.on("data", processStreamData);
+
 }
